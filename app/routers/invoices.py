@@ -986,7 +986,7 @@ Invoices Router
 Handles Performa Invoice generation with PDF download
 """
 
-from tkinter import Image
+# from tkinter import Image
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from fastapi.responses import StreamingResponse
 from datetime import datetime
