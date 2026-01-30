@@ -39,7 +39,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://crm.enigoal.in",  # Update with your Hostinger domain
-    "https://www.enigoal.in",
+    "https://enigoal.in",
 ]
 
 app.add_middleware(
