@@ -7,6 +7,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ASCENDING, DESCENDING
 import os
 from typing import Optional
+from bson.codec_options import DatetimeConversion
+
 
 # Global database client
 class Database:
@@ -30,6 +32,7 @@ async def connect_to_mongo():
         serverSelectionTimeoutMS=5000,
         connectTimeoutMS=5000,
         retryWrites=True,
+        datetime_conversion=DatetimeConversion.DATETIME_AUTO,  # 🔥 THIS FIX
     )
     db.db = db.client[DB_NAME]
     
