@@ -32,8 +32,8 @@ class UserRole(str, Enum):
     BDM = "BDM"
 
 class BranchName(str, Enum):
-    BRANCH_108 = "108"
-    BRANCH_302 = "302"
+    BRANCH_108 = "services"
+    BRANCH_302 = "advisory"
 
 class BookingStatus(str, Enum):
     PENDING = "Pending"
