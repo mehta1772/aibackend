@@ -74,6 +74,13 @@ async def create_indexes():
     # Profiles indexes
     await db.db.profiles.create_index([("user_id", ASCENDING)], unique=True)
     await db.db.profiles.create_index([("email", ASCENDING)])
+
+     # Scorecard entries indexes (PERFORMANCE CRITICAL)
+    await db.db.scorecard_entries.create_index([("user_id", ASCENDING)])
+    await db.db.scorecard_entries.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
+    await db.db.scorecard_entries.create_index([("user_id", ASCENDING), ("type", ASCENDING)])
+    await db.db.scorecard_entries.create_index([("booking_id", ASCENDING)])
+    await db.db.scorecard_entries.create_index([("created_at", DESCENDING)])
     
     print("✅ Database indexes created")
 
