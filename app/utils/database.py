@@ -54,10 +54,12 @@ async def create_indexes():
     await db.db.bookings.create_index([("date", DESCENDING)])
     await db.db.bookings.create_index([("payment_date", DESCENDING)])
     await db.db.bookings.create_index([("company_name", ASCENDING)])
+    await db.db.bookings.create_index([("contact_no", ASCENDING)])
     await db.db.bookings.create_index([("services", ASCENDING)])
     await db.db.bookings.create_index([("bdm", ASCENDING)])
     await db.db.bookings.create_index([("isDeleted", ASCENDING)])
     await db.db.bookings.create_index([("status", ASCENDING)])
+    await db.db.bookings.create_index([("verification_status", ASCENDING)])
     
     # Users indexes
     await db.db.users.create_index([("email", ASCENDING)], unique=True)

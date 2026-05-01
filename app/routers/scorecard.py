@@ -1,3 +1,4 @@
+
 # """
 # Scorecard Router
 # Handles BDM scorecard, revenue sharing, and service deductions
@@ -16,7 +17,6 @@
 # from app.utils.auth import get_current_user, require_admin
 
 # router = APIRouter()
-
 
 
 # async def build_scorecard_for_user(user_id: str, user_name: str, user_role: str, date_filter: dict, filter_by: str = "transaction_date"):
@@ -285,16 +285,128 @@
 #         except:
 #             raise HTTPException(status_code=400, detail="Invalid BDM ID")
     
+#     # PERFORMANCE OPTIMIZATION: Use a single aggregation query instead of looping per user
+#     # The list view only needs summary numbers - full entries load when "View" is clicked
+#     scorecard_collection = get_collection("scorecard_entries")
+#     bookings_collection = get_collection("bookings")
+    
+#     # If filtering by booking_date, we need booking IDs first
+#     booking_id_filter = None
+#     if filter_by == "booking_date" and date_filter:
+#         booking_query = {"isDeleted": False}
+#         if "$gte" in date_filter or "$lte" in date_filter:
+#             booking_query["date"] = date_filter
+        
+#         booking_ids = []
+#         async for b in bookings_collection.find(booking_query, {"_id": 1}):
+#             booking_ids.append(str(b["_id"]))
+#         booking_id_filter = booking_ids
+    
+#     # Get all eligible users
+#     users_list = []
+#     user_id_to_info = {}
+#     if bdm_id:
+#         # Single user requested
+#         async for user in users_collection.find(bdm_query):
+#             users_list.append(str(user["_id"]))
+#             user_id_to_info[str(user["_id"])] = {
+#                 "id": str(user["_id"]),
+#                 "name": user["name"],
+#                 "role": user["role"]
+#             }
+#     else:
+#         async for user in users_collection.find(bdm_query):
+#             users_list.append(str(user["_id"]))
+#             user_id_to_info[str(user["_id"])] = {
+#                 "id": str(user["_id"]),
+#                 "name": user["name"],
+#                 "role": user["role"]
+#             }
+    
+#     # Build aggregation match stage
+#     match_stage = {"user_id": {"$in": users_list}}
+    
+#     if filter_by == "booking_date":
+#         if booking_id_filter is not None:
+#             if booking_id_filter:
+#                 match_stage["booking_id"] = {"$in": booking_id_filter}
+#             else:
+#                 # No bookings in date range
+#                 scorecards = [
+#                     {
+#                         "user": user_id_to_info[uid],
+#                         "summary": {
+#                             "total_earned": 0, "total_shared_received": 0,
+#                             "total_shared_given": 0, "total_deductions": 0,
+#                             "net_total": 0, "total_transactions": 0,
+#                             "total_credits": 0, "total_debits": 0
+#                         },
+#                         "entries": []
+#                     }
+#                     for uid in users_list
+#                 ]
+#                 scorecards.sort(key=lambda x: x["summary"]["net_total"], reverse=True)
+#                 return {
+#                     "scorecards": scorecards,
+#                     "period": {"start_date": start_date, "end_date": end_date, "filter_by": filter_by},
+#                     "is_restricted": False
+#                 }
+#     elif date_filter:
+#         match_stage["created_at"] = date_filter
+    
+#     # Single aggregation: group by user_id, sum each entry type
+#     pipeline = [
+#         {"$match": match_stage},
+#         {
+#             "$group": {
+#                 "_id": "$user_id",
+#                 "total_earned": {
+#                     "$sum": {"$cond": [{"$eq": ["$type", "earned"]}, "$amount", 0]}
+#                 },
+#                 "total_shared_received": {
+#                     "$sum": {"$cond": [{"$eq": ["$type", "shared_received"]}, "$amount", 0]}
+#                 },
+#                 "total_shared_given": {
+#                     "$sum": {"$cond": [{"$eq": ["$type", "shared_given"]}, "$amount", 0]}
+#                 },
+#                 "total_deductions": {
+#                     "$sum": {"$cond": [{"$eq": ["$type", "deduction"]}, "$amount", 0]}
+#                 },
+#                 "total_transactions": {"$sum": 1}
+#             }
+#         }
+#     ]
+    
+#     aggregation_results = {}
+#     async for result in scorecard_collection.aggregate(pipeline):
+#         aggregation_results[result["_id"]] = result
+    
+#     # Build scorecard list (summary only - no entries for list view)
 #     scorecards = []
-#     async for user in users_collection.find(bdm_query):
-#         scorecard = await build_scorecard_for_user(
-#             user_id=str(user["_id"]),
-#             user_name=user["name"],
-#             user_role=user["role"],
-#             date_filter=date_filter,
-#             filter_by=filter_by
-#         )
-#         scorecards.append(scorecard)
+#     for user_id_str in users_list:
+#         agg = aggregation_results.get(user_id_str, {})
+#         total_earned = agg.get("total_earned", 0)
+#         total_shared_received = agg.get("total_shared_received", 0)
+#         total_shared_given = agg.get("total_shared_given", 0)
+#         total_deductions = agg.get("total_deductions", 0)
+#         total_credits = total_earned + total_shared_received
+#         total_debits = total_shared_given + total_deductions
+#         net_total = total_credits - total_debits
+        
+#         scorecards.append({
+#             "user": user_id_to_info[user_id_str],
+#             "summary": {
+#                 "total_earned": total_earned,
+#                 "total_shared_received": total_shared_received,
+#                 "total_shared_given": total_shared_given,
+#                 "total_deductions": total_deductions,
+#                 "net_total": net_total,
+#                 "total_transactions": agg.get("total_transactions", 0),
+#                 "total_credits": total_credits,
+#                 "total_debits": total_debits
+#             },
+#             "entries": []  # Empty - loaded on demand via /user/{id} when View clicked
+#         })
     
 #     # Sort by net total descending
 #     scorecards.sort(key=lambda x: x["summary"]["net_total"], reverse=True)
@@ -563,18 +675,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 """
 Scorecard Router
 Handles BDM scorecard, revenue sharing, and service deductions
@@ -607,12 +707,14 @@ async def build_scorecard_for_user(user_id: str, user_name: str, user_role: str,
     
     query = {"user_id": user_id}
     
-    # If filtering by booking_date, we need to find bookings in date range first
+    # If filtering by booking_date or payment_date, find bookings in date range first
     booking_id_filter = None
-    if filter_by == "booking_date" and date_filter:
+    if filter_by in ["booking_date", "payment_date"] and date_filter:
         booking_query = {"isDeleted": False}
+        # Use 'payment_date' field for payment_date filter, else 'date' (booking creation date)
+        date_field = "payment_date" if filter_by == "payment_date" else "date"
         if "$gte" in date_filter or "$lte" in date_filter:
-            booking_query["date"] = date_filter
+            booking_query[date_field] = date_filter
         
         booking_ids = []
         async for booking in bookings_collection.find(booking_query, {"_id": 1}):
@@ -642,17 +744,20 @@ async def build_scorecard_for_user(user_id: str, user_name: str, user_role: str,
     async for entry in scorecard_collection.find(query).sort("created_at", 1):
         raw_entries.append(entry)
     
-    # Get booking dates for each entry
+    # Get booking dates AND payment dates for each entry
     booking_ids_needed = list(set(e.get("booking_id") for e in raw_entries if e.get("booking_id")))
-    booking_dates = {}
+    booking_dates = {}      # Booking creation date
+    booking_payment_dates = {}  # Payment date
     if booking_ids_needed:
         try:
             object_ids = [ObjectId(bid) for bid in booking_ids_needed]
             async for b in bookings_collection.find(
                 {"_id": {"$in": object_ids}},
-                {"_id": 1, "date": 1, "company_name": 1}
+                {"_id": 1, "date": 1, "payment_date": 1, "company_name": 1}
             ):
-                booking_dates[str(b["_id"])] = b.get("date")
+                bid_str = str(b["_id"])
+                booking_dates[bid_str] = b.get("date")
+                booking_payment_dates[bid_str] = b.get("payment_date")
         except:
             pass
     
@@ -675,12 +780,19 @@ async def build_scorecard_for_user(user_id: str, user_name: str, user_role: str,
     }
     
     def sort_key(entry):
-        # Primary: booking_date (oldest first)
+        # Primary: date based on filter type (oldest first)
         booking_id = entry.get("booking_id")
-        b_date = booking_dates.get(booking_id) if booking_id else None
         created_at = entry.get("created_at")
-        # Use booking date for grouping, fallback to created_at
-        group_date = b_date or created_at
+        
+        if filter_by == "payment_date":
+            # Use payment_date for ordering
+            p_date = booking_payment_dates.get(booking_id) if booking_id else None
+            group_date = p_date or booking_dates.get(booking_id) or created_at
+        else:
+            # Use booking creation date
+            b_date = booking_dates.get(booking_id) if booking_id else None
+            group_date = b_date or created_at
+        
         # Secondary: booking_id (keep entries of same booking together)
         # Tertiary: type priority (credits before debits)
         return (
@@ -744,11 +856,13 @@ async def build_scorecard_for_user(user_id: str, user_name: str, user_role: str,
         
         booking_id = entry.get("booking_id")
         booking_date = booking_dates.get(booking_id) if booking_id else None
+        payment_date = booking_payment_dates.get(booking_id) if booking_id else None
         
         entry_data = {
             "id": str(entry["_id"]),
             "booking_id": booking_id,
             "booking_date": booking_date,
+            "payment_date": payment_date,
             "company_name": company_name,
             "type": entry_type,
             "amount": amount,
@@ -866,12 +980,14 @@ async def get_scorecards(
     scorecard_collection = get_collection("scorecard_entries")
     bookings_collection = get_collection("bookings")
     
-    # If filtering by booking_date, we need booking IDs first
+    # If filtering by booking_date or payment_date, we need booking IDs first
     booking_id_filter = None
-    if filter_by == "booking_date" and date_filter:
+    if filter_by in ["booking_date", "payment_date"] and date_filter:
         booking_query = {"isDeleted": False}
+        # Use 'payment_date' field for payment_date filter, else 'date' (booking creation)
+        date_field = "payment_date" if filter_by == "payment_date" else "date"
         if "$gte" in date_filter or "$lte" in date_filter:
-            booking_query["date"] = date_filter
+            booking_query[date_field] = date_filter
         
         booking_ids = []
         async for b in bookings_collection.find(booking_query, {"_id": 1}):
@@ -902,7 +1018,7 @@ async def get_scorecards(
     # Build aggregation match stage
     match_stage = {"user_id": {"$in": users_list}}
     
-    if filter_by == "booking_date":
+    if filter_by in ["booking_date", "payment_date"]:
         if booking_id_filter is not None:
             if booking_id_filter:
                 match_stage["booking_id"] = {"$in": booking_id_filter}
