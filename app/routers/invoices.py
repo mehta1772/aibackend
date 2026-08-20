@@ -1013,10 +1013,10 @@ COMPANY_GST = os.getenv("COMPANY_GST", "GSTIN123456789")
 COMPANY_PAN = os.getenv("COMPANY_PAN", "ABCDE1234F")
 COMPANY_EMAIL = os.getenv("COMPANY_EMAIL", "accounts@company.com")
 COMPANY_PHONE = os.getenv("COMPANY_PHONE", "+91 9511428816")
-BANK_NAME = os.getenv("BANK_NAME", "KOTAK Bank")
-BANK_ACCOUNT = os.getenv("BANK_ACCOUNT", "4054844733")
-BANK_IFSC = os.getenv("BANK_IFSC", "KKBK0000180")
-BANK_BRANCH = os.getenv("BANK_BRANCH", "NOIDA SECTOR 63")
+BANK_NAME = os.getenv("BANK_NAME", "IDFC FIRST BANK")
+BANK_ACCOUNT = os.getenv("BANK_ACCOUNT", "10286365143")
+BANK_IFSC = os.getenv("BANK_IFSC", "IDFB0021416")
+BANK_BRANCH = os.getenv("BANK_BRANCH", "GAZIABAD INDRAPURAM BRANCH")
 
 def generate_invoice_number():
     """Generate unique invoice number"""
